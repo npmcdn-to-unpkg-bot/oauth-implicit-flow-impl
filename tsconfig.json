@@ -9,8 +9,8 @@
         "declaration":true
     },
     "files": [
-        "./auth-service.ts",
-        "./init-options.ts"
+        "./src/auth-service.ts",
+        "./src/init-options.ts"
     ],
     "exclude": [
         "node_modules"
