@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "noImplicitAny": false,
+        "sourceMap": true,
+        "outDir":"dist",
+        "moduleResolution": "node",
+        "declaration":true
+    },
+    "files": [
+        "./auth-service.ts",
+        "./init-options.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
