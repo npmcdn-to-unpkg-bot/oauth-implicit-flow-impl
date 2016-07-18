@@ -2,34 +2,53 @@
 var AuthService = (function () {
     function AuthService(_options) {
         this._options = _options;
-        this.processLoginState();
+        if (!this._options.useIframe && !this.inIframe()) {
+            this.processLoginState(location.hash);
+        }
     }
-    AuthService.prototype.processLoginState = function () {
-        var params = this.parseHash();
+    AuthService.prototype.processLoginState = function (locationHash) {
+        var params = this.parseHash(locationHash);
         if (params['access_token']) {
-            if (params['nonce'] !== this._options.nonce) {
+            var token = this.parseToken(params['access_token']);
+            //should probably also validate the signature, to check nonce validity.
+            if (token.payload.nonce !== sessionStorage.getItem('nonce')) {
                 throw new Error('Invalid nonce.');
             }
-            this._options.nonce = undefined;
+            sessionStorage.removeItem('nonce');
             //an accessToken has been provided in the hash.
             //validateToken()
             //if valid
             //storeLoginInfo(params);
-            console.log(this.parseToken(params['access_token']));
+            if (document.getElementById('helloThingy')) {
+                document.getElementById('helloThingy').innerHTML = 'hello ' + token.payload['name'];
+            }
         }
         else {
         }
-        if (params['state']) {
+        if (params['state'] !== undefined) {
             this.restoreState(params['state']);
         }
     };
     AuthService.prototype.login = function () {
+        var _this = this;
         if (this._options.useIframe) {
-            var iframe = document.createElement('iframe');
-            iframe.setAttribute("class", "modal");
-            document.body.appendChild(iframe);
-            iframe.onload = this.processLoginState.bind(this);
-            iframe.contentWindow.location.assign(this.getLoginUrl());
+            var authService_1 = this;
+            var iframeId = 'loginIframe';
+            var iframe_1 = document.getElementById(iframeId) || document.createElement('iframe');
+            iframe_1.id = iframeId;
+            iframe_1.setAttribute("class", "modal");
+            iframe_1.setAttribute("src", this.getLoginUrl());
+            document.body.appendChild(iframe_1);
+            window.addEventListener('message', function (message) {
+                var token = _this.parseHash(message.data)['access_token'];
+                if (token) {
+                    document.body.removeChild(iframe_1);
+                    authService_1.processLoginState(message.data);
+                }
+            }, false);
+            iframe_1.onload = function () {
+                parent.postMessage(this.contentWindow.location.hash, '*');
+            };
         }
         else {
             window.location.assign(this.getLoginUrl());
@@ -37,6 +56,8 @@ var AuthService = (function () {
     };
     AuthService.prototype.logout = function () {
         if (this._options.useIframe) {
+            //?
+            window.location.assign(this.getLogoutUrl());
         }
         else {
             window.location.assign(this.getLogoutUrl());
@@ -44,29 +65,41 @@ var AuthService = (function () {
     };
     AuthService.prototype.getLoginUrl = function () {
         var options = this._options;
-        options.nonce = this.generateNonce();
-        var loginUrlTemplate = options.baseUrl + "\n            ?scope=" + options.scope + "\n            &state=" + this.serializeState() + "\n            &redirect_uri=" + options.redirectUri + "\n            &client_id=" + options.clientId + "\n            &nonce=" + options.nonce;
+        var nonce = this.generateNonce();
+        sessionStorage.setItem('nonce', nonce);
+        var loginUrlTemplate = ("" + options.authServer) +
+            ("/auth/realms/" + options.realm + "/protocol/openid-connect/auth") +
+            ("?scope=" + encodeURIComponent(options.scope)) +
+            ("&response_type=" + encodeURIComponent(options.responseType)) +
+            ("&state=" + encodeURIComponent(this.serializeState())) +
+            ("&redirect_uri=" + encodeURIComponent(options.redirectUri)) +
+            ("&client_id=" + encodeURIComponent(options.clientId)) +
+            ("&nonce=" + encodeURIComponent(nonce));
         return loginUrlTemplate;
     };
     AuthService.prototype.getLogoutUrl = function () {
         return '';
     };
     AuthService.prototype.serializeState = function () {
-        return btoa(window.location.href);
+        return btoa(window.location.hash);
     };
     AuthService.prototype.restoreState = function (bState) {
-        window.location.href = atob(bState);
+        try {
+            window.location.hash = atob(bState);
+        }
+        catch (e) {
+            console.error('couldn\'t parse state, but i dont care');
+        }
     };
     AuthService.prototype.generateNonce = function () {
-        return 42;
+        return '42'; //:) just a test
     };
-    AuthService.prototype.parseHash = function () {
+    AuthService.prototype.parseHash = function (locationHash) {
         // First, parse the query string
-        var params = {}, queryString = location.hash.substring(1), regex = /([^&=]+)=([^&]*)/g, m;
+        var params = {}, queryString = locationHash.substring(1), regex = /([^&=]+)=([^&]*)/g, m; //say thank you google example.
         while (m = regex.exec(queryString)) {
             params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
         }
-        //say thank you google example.
         return params;
     };
     AuthService.prototype.parseToken = function (jws) {
@@ -78,11 +111,18 @@ var AuthService = (function () {
         var b6Payload = RegExp.$2;
         var b6SigVal = RegExp.$3;
         var parsedToken = {
-            head: atob(b6Head),
-            payload: atob(b6Payload),
-            signature: atob(b6SigVal)
+            //head: JSON.parse(atob(b6Head)),
+            payload: JSON.parse(atob(b6Payload))
         };
         return parsedToken;
+    };
+    AuthService.prototype.inIframe = function () {
+        try {
+            return window.self !== window.top;
+        }
+        catch (e) {
+            return true;
+        }
     };
     return AuthService;
 }());

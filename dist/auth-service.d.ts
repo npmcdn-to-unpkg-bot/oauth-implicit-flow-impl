@@ -2,7 +2,7 @@ import { InitOptions } from './init-options';
 export declare class AuthService {
     private _options;
     constructor(_options: InitOptions);
-    processLoginState(): void;
+    processLoginState(locationHash: any): void;
     login(): void;
     logout(): void;
     private getLoginUrl();
@@ -10,6 +10,7 @@ export declare class AuthService {
     private serializeState();
     private restoreState(bState);
     private generateNonce();
-    private parseHash();
+    private parseHash(locationHash);
     private parseToken(jws);
+    private inIframe();
 }

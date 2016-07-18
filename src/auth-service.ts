@@ -3,91 +3,116 @@ import {InitOptions} from './init-options';
 export class AuthService {
 
     constructor(private _options: InitOptions) {
-
-        this.processLoginState();
+        if (!this._options.useIframe && !this.inIframe()) {
+            this.processLoginState(location.hash);
+        }
     }
 
-    public processLoginState() {
-        var params = this.parseHash();
+    public processLoginState(locationHash) {
+        var params = this.parseHash(locationHash);
         if (params['access_token']) {
-            if (params['nonce'] !== this._options.nonce) {
+            let token = this.parseToken(params['access_token']);
+            //should probably also validate the signature, to check nonce validity.
+            if (token.payload.nonce !== sessionStorage.getItem('nonce')) {
                 throw new Error('Invalid nonce.');
             }
-            this._options.nonce = undefined;
+            sessionStorage.removeItem('nonce');
             //an accessToken has been provided in the hash.
             //validateToken()
             //if valid
             //storeLoginInfo(params);
-            console.log(this.parseToken(params['access_token']));
+            if (document.getElementById('helloThingy')) {
+                document.getElementById('helloThingy').innerHTML = 'hello ' + token.payload['name'];
+            }
         }
         else {
             //request current token from server?
             //perhaps a valid session exists server side.
         }
-        if (params['state']) {
+        if (params['state'] !== undefined) {
             this.restoreState(params['state']);
         }
     }
 
     public login() {
         if (this._options.useIframe) {
-            let iframe = document.createElement('iframe');
+            let authService = this;
+            let iframeId = 'loginIframe';
+            let iframe = document.getElementById(iframeId) || document.createElement('iframe');
+            iframe.id = iframeId;
             iframe.setAttribute("class", "modal");
+            iframe.setAttribute("src", this.getLoginUrl());
             document.body.appendChild(iframe);
-            iframe.onload = this.processLoginState.bind(this);
-            iframe.contentWindow.location.assign(this.getLoginUrl());
+            window.addEventListener('message', (message) => {
+                let token = this.parseHash(message.data)['access_token'];
+                if (token) {
+                    document.body.removeChild(iframe);
+                    authService.processLoginState(message.data);
+                }
+            }, false);
+            iframe.onload = function() {
+                parent.postMessage(this.contentWindow.location.hash, '*');
+            };
         } else {
             window.location.assign(this.getLoginUrl());
         }
     }
 
     public logout() {
-        if(this._options.useIframe){
+        if (this._options.useIframe) {
             //?
-        }else{
+            window.location.assign(this.getLogoutUrl());
+        } else {
             window.location.assign(this.getLogoutUrl());
         }
     }
 
-    private getLoginUrl() {        
+    private getLoginUrl() {
         let options = this._options;
-        options.nonce = this.generateNonce();
+        let nonce = this.generateNonce();
+        sessionStorage.setItem('nonce', nonce);
 
         let loginUrlTemplate =
-            `${options.baseUrl}
-            ?scope=${options.scope}
-            &state=${this.serializeState()}
-            &redirect_uri=${options.redirectUri}
-            &client_id=${options.clientId}
-            &nonce=${options.nonce}`;
+            `${options.authServer}` +
+            `/auth/realms/${options.realm}/protocol/openid-connect/auth` +
+            `?scope=${encodeURIComponent(options.scope)}` +
+            `&response_type=${encodeURIComponent(options.responseType)}` +
+            `&state=${encodeURIComponent(this.serializeState())}` +
+            `&redirect_uri=${encodeURIComponent(options.redirectUri)}` +
+            `&client_id=${encodeURIComponent(options.clientId)}` +
+            `&nonce=${encodeURIComponent(nonce)}`;
 
         return loginUrlTemplate;
     }
-    
-    private getLogoutUrl(){
+
+    private getLogoutUrl() {
         return '';
     }
 
-    private serializeState():string {
-        return btoa(window.location.href);
+    private serializeState(): string {
+        return btoa(window.location.hash);
     }
-    
+
     private restoreState(bState) {
-        window.location.href = atob(bState);
+        try {
+            window.location.hash = atob(bState);
+        } catch (e) {
+            console.error('couldn\'t parse state, but i dont care');
+        }
     }
 
     private generateNonce() {
-        return 42;
+        return '42'; //:) just a test
     }
 
-    private parseHash() {
+    private parseHash(locationHash) {
         // First, parse the query string
-        var params = {}, queryString = location.hash.substring(1),
-            regex = /([^&=]+)=([^&]*)/g, m;
+        var params = {}, queryString = locationHash.substring(1),
+            regex = /([^&=]+)=([^&]*)/g, m; //say thank you google example.
         while (m = regex.exec(queryString)) {
             params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
         }
-        //say thank you google example.
+
         return params;
     }
 
@@ -100,10 +125,19 @@ export class AuthService {
         var b6Payload = RegExp.$2;
         var b6SigVal = RegExp.$3;
         var parsedToken = {
-            head: atob(b6Head),
-            payload: atob(b6Payload),
-            signature: atob(b6SigVal)
+            //head: JSON.parse(atob(b6Head)),
+            payload: JSON.parse(atob(b6Payload))
+            // ,
+            // signature: atob(b6SigVal)
         }
         return parsedToken;
+    }
+
+    private inIframe() {
+        try {
+            return window.self !== window.top;
+        } catch (e) {
+            return true;
+        }
     }
 }

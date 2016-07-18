@@ -1,8 +1,9 @@
 export class InitOptions{
     public useIframe;
-    public baseUrl;
+    public authServer;
+    public realm;
     public clientId;
     public scope;
     public redirectUri;
-    public nonce;
+    public responseType = 'token';
 }
