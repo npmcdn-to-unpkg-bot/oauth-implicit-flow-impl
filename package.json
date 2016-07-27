@@ -1,21 +1,22 @@
 {
-    "name": "auth2-implicit",
-    "version": "0.0.1",
-    "description": "Simple implementation of the oauth2 implicit flow process. Created for learning purposes.",
-    "main": "dist/index.js",
-    "scripts": {
-        "build": "tsc --project ./",
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "keywords": [
-        "oauth2",
-        "implicit",
-        "browser"
-    ],
-    "author": "joris Dekker",
-    "license": "UNLICENSED",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/jecede/oauth-implicit-flow-impl.git"
-    }
+  "name": "auth2-implicit",
+  "version": "0.0.1",
+  "description": "Simple implementation of the oauth2 implicit flow process. Created for learning purposes.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node_modules/.bin/tsc --project ./",
+    "dev": "tsc --project ./ -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "oauth2",
+    "implicit",
+    "browser"
+  ],
+  "author": "joris Dekker",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jecede/oauth-implicit-flow-impl.git"
+  }
 }

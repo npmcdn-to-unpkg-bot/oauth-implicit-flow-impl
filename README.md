@@ -20,3 +20,8 @@ ps:
 remove in keycloak in the realmsettings->security defenses the x-frame-options.
 enable in clients->angular2-product implicit flow.
 login with stian/password. (when using hte keycloak-examples image)
+
+docker ps
+docker inspect -f {{.NetworkSettings.IPAddress}}
+
+http://172.17.0.2:8080/auth/realms/demo/.well-known/openid-configuration

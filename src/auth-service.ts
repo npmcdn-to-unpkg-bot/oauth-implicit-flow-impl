@@ -9,28 +9,34 @@ export class AuthService {
     }
 
     public processLoginState(locationHash) {
-        var params = this.parseHash(locationHash);
+        let token;
+        let params = this.parseHash(locationHash);
         if (params['access_token']) {
-            let token = this.parseToken(params['access_token']);
+            token = this.parseToken(params['access_token']);
             //should probably also validate the signature, to check nonce validity.
             if (token.payload.nonce !== sessionStorage.getItem('nonce')) {
                 throw new Error('Invalid nonce.');
             }
             sessionStorage.removeItem('nonce');
+            sessionStorage.setItem('access_token',params['access_token']);
             //an accessToken has been provided in the hash.
             //validateToken()
             //if valid
             //storeLoginInfo(params);
-            if (document.getElementById('helloThingy')) {
-                document.getElementById('helloThingy').innerHTML = 'hello ' + token.payload['name'];
-            }
+            
         }
-        else {
+        else if(sessionStorage.getItem('access_token')){
+            token = this.parseToken(sessionStorage.getItem('access_token'));
+        }else {
             //request current token from server?
             //perhaps a valid session exists server side.
         }
         if (params['state'] !== undefined) {
             this.restoreState(params['state']);
+        }
+        //display username.
+        if (token && document.getElementById('helloThingy')) {
+            document.getElementById('helloThingy').innerHTML = 'hello ' + token.payload['name'];
         }
     }
 
@@ -59,6 +65,7 @@ export class AuthService {
     }
 
     public logout() {
+        sessionStorage.removeItem('access_token');
         if (this._options.useIframe) {
             //?
             window.location.assign(this.getLogoutUrl());
@@ -86,7 +93,7 @@ export class AuthService {
     }
 
     private getLogoutUrl() {
-        return '';
+        return this._options.authServer+'/auth/realms/demo/protocol/openid-connect/logout?redirect_uri='+encodeURIComponent(location.href);
     }
 
     private serializeState(): string {
